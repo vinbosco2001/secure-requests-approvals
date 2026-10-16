@@ -1,0 +1,72 @@
+# Real environment configuration and credentials
+.env
+.env.*
+!.env.example
+*secrets*
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.csr
+*.crt
+*.srl
+*.asc
+*.gpg
+*.kdbx
+vault-data/
+**/.vault-token
+**/certificati HTTPS/
+ConfigurazioneRealmKeycloak.json
+
+# Runtime data, backups and security assessment artefacts
+Backups_Postgres/
+**/*.sql
+**/*.sql.gz
+**/*.7z
+**/*.bak
+**/*.backup
+logs/
+**/logs/
+*.log
+*.log.*
+ReportPenetrationTest/
+*ZAP-Report*
+*ReportFinale*
+
+# Academic reports and potentially identifying screenshots
+*.pdf
+*.docx
+*.xlsx
+*.pptx
+*.png
+*.jpg
+*.jpeg
+
+# Maven and build output
+/target/
+**/target/
+/build/
+**/build/
+.mvn/wrapper/maven-wrapper.jar
+
+# IDE and OS files
+.idea/
+.vscode/
+*.iml
+*.class
+.project
+.classpath
+.settings/
+.factorypath
+.apt_generated/
+.springBeans
+.sts4-cache/
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.swp
+*~
+.cache/

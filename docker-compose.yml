@@ -1,0 +1,94 @@
+# Local development infrastructure only: Keycloak start-dev and Vault HTTP are NOT production configurations.
+services:
+  # --- 1. IL DATABASE CONDIVISO ---
+  postgres-db:
+    image: postgres:15
+    container_name: postgres-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}      # Legge dal file .env
+      POSTGRES_PASSWORD: ${POSTGRES_PASS}  # Legge dal file .env
+      POSTGRES_DB: ${POSTGRES_DB_NAME}
+
+    # Hardening anti resource exhaustion:
+    # - limita connessioni massime (anti connection flood)
+    # - timeout query (anti query "infinite"/costose)
+    # - timeout transazioni idle (anti lock/risorse bloccate)
+    command: >
+      postgres
+      -c max_connections=50
+      -c shared_buffers=128MB
+      -c statement_timeout=5000
+      -c idle_in_transaction_session_timeout=10000
+
+    # Limiti reali di risorse (più affidabili di deploy: su docker-compose non-swarm)
+    cpus: "0.50"
+    mem_limit: 512m
+
+    # (Opzionale / Documentativo) Limiti in stile Swarm
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
+
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  # --- 2. KEYCLOAK ---
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: keycloak
+    command: start-dev
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres-db:5432/${POSTGRES_DB_NAME}
+      KC_DB_USERNAME: ${POSTGRES_USER}
+      KC_DB_PASSWORD: ${POSTGRES_PASS}
+      KEYCLOAK_ADMIN: ${KC_ADMIN_USER}
+      KEYCLOAK_ADMIN_PASSWORD: ${KC_ADMIN_PASS}
+      KC_HOSTNAME: https://auth.local
+      # Abilita la lettura degli header X-Forwarded-* inviati da Apache
+      KC_PROXY_HEADERS: xforwarded
+      # Abilita ascolto su HTTP (Apache ci parla su 8083 -> 8080 interna)
+      KC_HTTP_ENABLED: "true"
+      # Disabilita controlli stretti per sviluppo
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+    ports:
+      - "127.0.0.1:8083:8080"
+    depends_on:
+      - postgres-db
+    networks:
+      - app-network
+
+  # --- 3. VAULT ---
+  vault:
+    image: hashicorp/vault:latest
+    container_name: vault-server
+    ports:
+      - "127.0.0.1:8200:8200"
+    environment:
+      VAULT_ADDR: 'http://0.0.0.0:8200'
+      VAULT_API_ADDR: 'http://0.0.0.0:8200'
+      VAULT_LOCAL_CONFIG: '{"backend": {"file": {"path": "/vault/file"}}, "listener": {"tcp": {"address": "0.0.0.0:8200", "tls_disable": 1}}, "default_lease_ttl": "168h", "max_lease_ttl": "720h", "ui": true, "disable_mlock": true}'
+      # (Opzionale) Se volessi impostare un token root fisso per sviluppo
+      # VAULT_DEV_ROOT_TOKEN_ID: ${VAULT_TOKEN}
+    cap_add:
+      - IPC_LOCK
+    volumes:
+      - vault-persistence:/vault/file
+    command: server
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+  vault-persistence:
+
+networks:
+  app-network:
+    driver: bridge
